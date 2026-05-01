@@ -1,0 +1,102 @@
+import React, { useState } from 'react';
+import axios from 'axios';
+import { Link, useNavigate } from 'react-router-dom';
+
+const Register = () => {
+    // State management for form data and UI feedback
+    const [formData, setFormData] = useState({ name: '', email: '', password: '', role: 'Requester' });
+    const [msg, setMsg] = useState('');
+    const [loading, setLoading] = useState(false);
+    const navigate = useNavigate();
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setLoading(true); // Disable button to prevent duplicate entries
+        setMsg(""); 
+
+        try {
+            // Sends request to the Backend Port 5000
+            const res = await axios.post('http://localhost:5000/api/auth/register', formData);
+            setMsg("✅ " + res.data.message);
+            
+            // Clear form state
+            setFormData({ name: '', email: '', password: '', role: 'Requester' });
+            
+            // Auto-redirect to login after 2 seconds so the user can test their new account
+            setTimeout(() => navigate('/login'), 2000);
+        } catch (err) {
+            // Catches "Email already exists" or "Connection Refused"
+            setMsg("❌ " + (err.response?.data?.error || "Registration Failed. Check if Backend is running."));
+        } finally {
+            setLoading(false); // Re-enable button
+        }
+    };
+
+    return (
+        <div className="min-h-screen flex items-center justify-center bg-slate-100 p-4">
+            <div className="bg-white p-10 rounded-2xl shadow-2xl w-full max-w-md border border-slate-200">
+                <div className="text-center mb-8">
+                    <h2 className="text-3xl font-bold text-slate-800">Create Account</h2>
+                    <p className="text-slate-500 mt-2">Document Request System</p>
+                </div>
+                
+                <form onSubmit={handleSubmit} className="space-y-5">
+                    <input 
+                        className="w-full border border-slate-300 p-3 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition" 
+                        placeholder="Full Name" 
+                        value={formData.name}
+                        onChange={(e) => setFormData({...formData, name: e.target.value})} 
+                        required 
+                    />
+                    
+                    <input 
+                        className="w-full border border-slate-300 p-3 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition" 
+                        type="email" 
+                        placeholder="Email Address" 
+                        value={formData.email}
+                        onChange={(e) => setFormData({...formData, email: e.target.value})} 
+                        required 
+                    />
+                    
+                    <input 
+                        className="w-full border border-slate-300 p-3 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition" 
+                        type="password" 
+                        placeholder="Create Password" 
+                        value={formData.password}
+                        onChange={(e) => setFormData({...formData, password: e.target.value})} 
+                        required 
+                    />
+                    
+                    <select 
+                        className="w-full border border-slate-300 p-3 rounded-xl bg-white appearance-none outline-none focus:ring-2 focus:ring-blue-500" 
+                        value={formData.role}
+                        onChange={(e) => setFormData({...formData, role: e.target.value})}
+                    >
+                        <option value="Requester">Requester</option>
+                        <option value="Admin">Admin</option>
+                    </select>
+
+                    <button 
+                        disabled={loading} 
+                        className={`w-full text-white font-bold py-3 rounded-xl transition duration-300 shadow-lg ${loading ? 'bg-slate-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 shadow-blue-100'}`}
+                    >
+                        {loading ? "Processing..." : "Register"}
+                    </button>
+                </form>
+
+                {/* Display Success or Error messages */}
+                {msg && (
+                    <p className={`mt-4 text-center font-medium p-2 rounded-lg ${msg.includes('✅') ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+                        {msg}
+                    </p>
+                )}
+                
+                <p className="mt-8 text-center text-slate-600 text-sm">
+                    Already have an account? <Link to="/login" className="text-blue-600 font-bold hover:underline">Log In</Link>
+                </p>
+            </div>
+        </div>
+    );
+};
+
+export default Register;
