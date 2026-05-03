@@ -2,24 +2,14 @@ const router = require('express').Router();
 const multer = require('multer');
 const Request = require('../models/Request');
 
-// Setup multer for file upload
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, 'uploads/');   // Make sure this folder exists
-  },
-  filename: (req, file, cb) => {
-    cb(null, Date.now() + '-' + file.originalname);
-  }
+  destination: (req, file, cb) => cb(null, 'uploads/'),
+  filename: (req, file, cb) => cb(null, Date.now() + '-' + file.originalname)
 });
 
-const upload = multer({ storage: storage });
+const upload = multer({ storage });
 
-// POST /api/requests
 router.post('/', upload.single('file'), async (req, res) => {
-  console.log("=== REQUEST RECEIVED ===");
-  console.log("Body:", req.body);
-  console.log("File:", req.file);
-
   try {
     const { documentType, description } = req.body;
 
@@ -28,31 +18,24 @@ router.post('/', upload.single('file'), async (req, res) => {
     }
 
     const newRequest = new Request({
-      requester: "67f8c9d2e123456789abcdef",   // temporary
+      requester: "67f8c9d2e123456789abcdef", // Replace with real user ID from JWT later
       requesterName: "Badong",
       documentType,
       description: description || "",
-      status: "Pending",
-      fileName: req.file ? req.file.filename : null
+      fileName: req.file ? req.file.filename : null,
+      status: "Pending"
     });
 
-    const savedRequest = await newRequest.save();
-
-    console.log("✅ Request saved! ID:", savedRequest._id);
+    await newRequest.save();
 
     res.status(201).json({
       success: true,
       message: "Request submitted successfully!",
-      requestId: savedRequest._id
+      requestId: newRequest._id
     });
-
   } catch (err) {
-    console.error("❌ FULL ERROR:", err.message);
-    res.status(500).json({
-      success: false,
-      message: "Failed to submit request",
-      error: err.message
-    });
+    console.error(err);
+    res.status(500).json({ success: false, message: "Failed to submit request" });
   }
 });
 
