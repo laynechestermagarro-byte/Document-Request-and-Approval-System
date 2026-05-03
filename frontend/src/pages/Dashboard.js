@@ -29,7 +29,7 @@ const Dashboard = () => {
 
   // Fetch requests when userRole or userId changes
   useEffect(() => {
-    setLoading(true);           // Reset loading state
+    setLoading(true);
     fetchRequests();
   }, [fetchRequests]);
 
@@ -139,7 +139,13 @@ const Dashboard = () => {
           <Plus size={24} /> New Request
         </button>
       )}
-      <Request isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+
+      {/* Updated Request Component Call */}
+      <Request 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)} 
+        onSuccess={fetchRequests}     // ← This was missing
+      />
     </div>
   );
 };

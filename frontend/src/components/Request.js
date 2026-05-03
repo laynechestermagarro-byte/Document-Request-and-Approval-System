@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import { Upload, X } from 'lucide-react';
 
-const Request = ({ isOpen, onClose }) => {
+const Request = ({ isOpen, onClose, onSuccess }) => {
   const [documentType, setDocumentType] = useState('');
   const [description, setDescription] = useState('');
   const [file, setFile] = useState(null);
@@ -56,7 +56,8 @@ const Request = ({ isOpen, onClose }) => {
       setFile(null);
       setErrors({});
 
-      onClose();
+      onSuccess?.();   // ← Refresh dashboard
+      onClose();       // Close modal
 
     } catch (err) {
       alert(err.response?.data?.message || "Failed to submit request. Please try again.");
