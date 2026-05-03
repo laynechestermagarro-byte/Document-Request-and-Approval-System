@@ -38,15 +38,13 @@ const Login = () => {
         try {
             const res = await axios.post('http://localhost:5000/api/auth/login', { email, password });
 
-            // CRITICAL FIX: Destructure the userId (or _id) from the response
-            // Adjust 'userId' to match your backend's response key (usually 'userId' or 'id')
+            // CRITICAL FIX: Extract userId to prevent 'undefined' errors in dashboard
             const { token, role, name, userId, id } = res.data;
 
             localStorage.setItem('token', token);
             localStorage.setItem('role', role);
             localStorage.setItem('name', name || 'User');
-            
-            // This line fixes the "Session Expired" error in Request.js
+            // This line ensures the Request component can find the user ID
             localStorage.setItem('userId', userId || id); 
 
             setMsg("✅ Login Successful! Redirecting...");
