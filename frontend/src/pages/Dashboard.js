@@ -1,23 +1,20 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import neuLogo from '../assets/neu-logo.png';
-import { Search, Plus, FileText, Clock, CheckCircle, User, LogOut } from 'lucide-react'; // Removed unused 'Bell'
+// Removed 'Bell' to fix the unused variable error
+import { Search, Plus, FileText, Clock, CheckCircle, User, LogOut } from 'lucide-react'; 
 import Request from '../components/Request';
 
-// --- SUB-COMPONENTS (Defined outside to ensure they are available) ---
+// --- SUB-COMPONENTS (Defined outside to clear "not defined" errors) ---
 
 const NavItem = ({ icon, label, active = false }) => (
-  <div className={`flex items-center gap-3 px-5 py-3.5 rounded-2xl font-bold cursor-pointer transition ${active ? 'bg-blue-600 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>
+  <div className={`flex items-center gap-3 px-5 py-3.5 rounded-2xl font-bold cursor-pointer transition ${active ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-50'}`}>
     {icon} <span className="text-sm">{label}</span>
   </div>
 );
 
 const StatCard = ({ title, count, color, icon, status }) => {
-  const colors = { 
-    blue: "bg-blue-50 text-blue-600", 
-    emerald: "bg-emerald-50 text-emerald-600", 
-    slate: "bg-slate-50 text-slate-600" 
-  };
+  const colors = { blue: "bg-blue-50 text-blue-600", emerald: "bg-emerald-50 text-emerald-600", slate: "bg-slate-50 text-slate-600" };
   return (
     <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
       <div className="flex justify-between items-start">
@@ -42,9 +39,7 @@ const RequestItem = ({ name, description, date, status, isAdmin, onApprove, onRe
   return (
     <div className="flex items-center justify-between p-6 rounded-2xl border border-slate-100 hover:bg-slate-50/50 transition-colors">
       <div className="flex items-center gap-5">
-        <div className="w-14 h-14 bg-white border border-slate-100 rounded-2xl flex items-center justify-center text-slate-400">
-          <FileText size={24} />
-        </div>
+        <div className="w-14 h-14 bg-white border border-slate-100 rounded-2xl flex items-center justify-center text-slate-400"><FileText size={24} /></div>
         <div>
           <p className="font-bold text-slate-900">{name}</p>
           <p className="text-slate-400 text-xs font-medium">Submitted on {date}</p>
@@ -116,7 +111,6 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex font-sans">
-      {/* Sidebar */}
       <div className="w-72 bg-white border-r border-slate-200 h-screen p-6 fixed shadow-sm">
         <div className="flex items-center gap-3 mb-12">
           <img src={neuLogo} alt="Logo" className="h-11 w-auto" />
@@ -138,7 +132,7 @@ const Dashboard = () => {
         <nav className="bg-white border-b border-slate-200 px-10 py-5 flex justify-between items-center sticky top-0 z-10">
           <div className="relative w-96">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
-            <input type="text" placeholder="Search..." className="w-full pl-12 pr-4 py-3 bg-slate-100 rounded-2xl text-sm outline-none" />
+            <input type="text" placeholder="Search..." className="w-full pl-12 pr-4 py-3 bg-slate-100 rounded-2xl text-sm outline-none focus:ring-2 ring-blue-100 transition" />
           </div>
           <div className="flex items-center gap-3 border-l pl-6 border-slate-200">
             <div className="text-right">
@@ -162,7 +156,7 @@ const Dashboard = () => {
             <h2 className="text-2xl font-bold mb-8">Recent Activity</h2>
             <div className="space-y-4">
               {loading ? (
-                <p className="text-center py-10">Loading...</p>
+                <p className="text-center py-10 font-medium text-slate-400">Loading requests...</p>
               ) : requests.length > 0 ? (
                 requests.map(req => (
                   <RequestItem 
@@ -177,7 +171,7 @@ const Dashboard = () => {
                   />
                 ))
               ) : (
-                <p className="text-center text-slate-400 py-10">No requests yet.</p>
+                <p className="text-center text-slate-400 py-10 font-medium">No document requests found.</p>
               )}
             </div>
           </div>
@@ -185,7 +179,7 @@ const Dashboard = () => {
       </div>
 
       {userRole === 'Requester' && (
-        <button onClick={() => setIsModalOpen(true)} className="fixed bottom-8 right-8 bg-blue-600 text-white px-8 py-4 rounded-2xl font-bold flex items-center gap-3 shadow-xl hover:scale-105 transition-transform">
+        <button onClick={() => setIsModalOpen(true)} className="fixed bottom-8 right-8 bg-blue-600 text-white px-8 py-4 rounded-2xl font-bold flex items-center gap-3 shadow-xl hover:bg-blue-700 hover:scale-105 transition-all">
           <Plus size={24} /> New Request
         </button>
       )}

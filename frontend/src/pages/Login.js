@@ -8,25 +8,21 @@ const Login = () => {
     const [password, setPassword] = useState('');
     const [msg, setMsg] = useState('');
     const [loading, setLoading] = useState(false);
-    const [errors, setErrors] = useState({});   // New: Form validation errors
+    const [errors, setErrors] = useState({});
     const navigate = useNavigate();
 
-    // Frontend Validation
     const validateForm = () => {
         const newErrors = {};
-
         if (!email.trim()) {
             newErrors.email = "Email is required";
         } else if (!/\S+@\S+\.\S+/.test(email)) {
             newErrors.email = "Please enter a valid email";
         }
-
         if (!password) {
             newErrors.password = "Password is required";
         } else if (password.length < 6) {
             newErrors.password = "Password must be at least 6 characters";
         }
-
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
@@ -42,11 +38,16 @@ const Login = () => {
         try {
             const res = await axios.post('http://localhost:5000/api/auth/login', { email, password });
 
-            const { token, role, name } = res.data;
+            // CRITICAL FIX: Destructure the userId (or _id) from the response
+            // Adjust 'userId' to match your backend's response key (usually 'userId' or 'id')
+            const { token, role, name, userId, id } = res.data;
 
             localStorage.setItem('token', token);
             localStorage.setItem('role', role);
             localStorage.setItem('name', name || 'User');
+            
+            // This line fixes the "Session Expired" error in Request.js
+            localStorage.setItem('userId', userId || id); 
 
             setMsg("✅ Login Successful! Redirecting...");
 
@@ -76,7 +77,7 @@ const Login = () => {
 
                 <form onSubmit={handleLogin} className="space-y-6">
                     <div>
-                        <label className="block text-sm font-semibold mb-1.5">Email</label>
+                        <label className="block text-sm font-semibold mb-1.5 text-slate-700">Email</label>
                         <input 
                             type="email" 
                             placeholder="you@example.com" 
@@ -88,7 +89,7 @@ const Login = () => {
                     </div>
 
                     <div>
-                        <label className="block text-sm font-semibold mb-1.5">Password</label>
+                        <label className="block text-sm font-semibold mb-1.5 text-slate-700">Password</label>
                         <input 
                             type="password" 
                             placeholder="••••••••" 
@@ -101,19 +102,19 @@ const Login = () => {
 
                     <button 
                         disabled={loading} 
-                        className={`w-full py-4 rounded-xl font-bold text-white transition ${loading ? 'bg-slate-400' : 'bg-blue-600 hover:bg-blue-700'}`}
+                        className={`w-full py-4 rounded-xl font-bold text-white transition-all transform active:scale-95 ${loading ? 'bg-slate-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-200'}`}
                     >
                         {loading ? "Authenticating..." : "Sign In"}
                     </button>
                 </form>
 
                 {msg && (
-                    <p className={`mt-6 text-center p-3 rounded-lg text-sm font-medium ${msg.includes('✅') ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
+                    <div className={`mt-6 text-center p-3 rounded-xl text-sm font-bold animate-pulse ${msg.includes('✅') ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-rose-50 text-rose-700 border border-rose-100'}`}>
                         {msg}
-                    </p>
+                    </div>
                 )}
 
-                <p className="mt-10 text-center text-slate-600 text-sm">
+                <p className="mt-10 text-center text-slate-600 text-sm font-medium">
                     Don't have an account? <Link to="/register" className="text-blue-600 font-bold hover:underline">Register</Link>
                 </p>
             </div>
