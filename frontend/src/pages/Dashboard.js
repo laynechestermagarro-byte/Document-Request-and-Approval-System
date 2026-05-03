@@ -1,7 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import neuLogo from '../assets/neu-logo.png';
-// Task 3.5: Cleaned up imports to fix "defined but never used" warnings
 import { Search, Bell, Plus, FileText, Clock, CheckCircle, User, LogOut } from 'lucide-react';
 import Request from '../components/Request';
 
@@ -14,22 +13,38 @@ const Dashboard = () => {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Task 3.4: Integration of Document APIs
-  useEffect(() => {
-    const fetchRequests = async () => {
-      try {
-        const res = await axios.get(`http://localhost:5000/api/docs/all`, {
-          params: { role: userRole, userId: userId }
-        });
-        setRequests(res.data);
-      } catch (err) {
-        console.error("Error fetching requests:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchRequests();
+  // Function to fetch data - memoized with useCallback
+  const fetchRequests = useCallback(async () => {
+    try {
+      const res = await axios.get(`http://localhost:5000/api/docs/all`, {
+        params: { role: userRole, userId: userId }
+      });
+      setRequests(res.data);
+    } catch (err) {
+      console.error("Error fetching requests:", err);
+    } finally {
+      setLoading(false);
+    }
   }, [userRole, userId]);
+
+  // Fetch requests when userRole or userId changes
+  useEffect(() => {
+    setLoading(true);           // Reset loading state
+    fetchRequests();
+  }, [fetchRequests]);
+
+  // Handle Admin Actions (Approve/Reject)
+  const handleStatusUpdate = async (docId, newStatus) => {
+    try {
+      await axios.patch(`http://localhost:5000/api/docs/status/${docId}`, { 
+        status: newStatus 
+      });
+      alert(`Request ${newStatus} successfully!`);
+      fetchRequests(); // Refresh the list
+    } catch (err) {
+      alert("Failed to update status.");
+    }
+  };
 
   const handleSignOut = () => {
     if (window.confirm("Are you sure you want to sign out?")) {
@@ -44,7 +59,6 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex font-sans">
-      {/* Sidebar */}
       <div className="w-72 bg-white border-r border-slate-200 h-screen p-6 fixed">
         <div className="flex items-center gap-3 mb-12">
           <img src={neuLogo} alt="Logo" className="h-11 w-auto" />
@@ -53,7 +67,6 @@ const Dashboard = () => {
             <p className="text-xs text-slate-500 -mt-1">Document Request System</p>
           </div>
         </div>
-
         <nav className="space-y-2">
           <NavItem icon={<FileText size={20} />} label="Dashboard" active />
           <NavItem icon={<FileText size={20} />} label="Documents" />
@@ -61,7 +74,6 @@ const Dashboard = () => {
           <NavItem icon={<CheckCircle size={20} />} label="History" />
           <NavItem icon={<User size={20} />} label="Profile" />
         </nav>
-
         <div className="absolute bottom-8 left-6 right-6">
           <button onClick={handleSignOut} className="w-full bg-red-50 text-red-600 py-3.5 rounded-2xl font-medium flex items-center justify-center gap-2">
             <LogOut size={18} /> Sign Out
@@ -69,14 +81,12 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* Main Content */}
       <div className="flex-1 ml-72">
         <nav className="bg-white border-b border-slate-200 px-10 py-5 flex justify-between items-center">
           <div className="relative w-96">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
             <input type="text" placeholder="Search..." className="w-full pl-12 pr-4 py-3 bg-slate-100 rounded-2xl text-sm outline-none" />
           </div>
-
           <div className="flex items-center gap-6">
             <Bell className="text-slate-400" size={22} />
             <div className="flex items-center gap-3">
@@ -101,14 +111,24 @@ const Dashboard = () => {
           <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
             <h2 className="text-2xl font-bold mb-8">Recent Document Requests</h2>
             <div className="space-y-3">
-              {loading ? <p>Loading...</p> : requests.map(req => (
-                <RequestItem 
-                  key={req._id} 
-                  name={userRole === 'Admin' ? `${req.requester?.name} - ${req.documentType}` : req.documentType} 
-                  date={new Date(req.createdAt).toLocaleDateString()} 
-                  status={req.status} 
-                />
-              ))}
+              {loading ? (
+                <p>Loading...</p> 
+              ) : requests.length > 0 ? (
+                requests.map(req => (
+                  <RequestItem 
+                    key={req._id} 
+                    name={userRole === 'Admin' ? `${req.requester?.name || 'Unknown User'} - ${req.documentType}` : req.documentType} 
+                    description={req.description}
+                    date={new Date(req.createdAt).toLocaleDateString()} 
+                    status={req.status}
+                    isAdmin={userRole === 'Admin'}
+                    onApprove={() => handleStatusUpdate(req._id, 'Approved')}
+                    onReject={() => handleStatusUpdate(req._id, 'Rejected')}
+                  />
+                ))
+              ) : (
+                <p className="text-center text-slate-400 py-10">No requests found.</p>
+              )}
             </div>
           </div>
         </main>
@@ -124,7 +144,7 @@ const Dashboard = () => {
   );
 };
 
-// --- SUB-COMPONENTS (These fix the "is not defined" errors) ---
+// --- SUB-COMPONENTS ---
 
 const NavItem = ({ icon, label, active = false }) => (
   <div className={`flex items-center gap-3 px-5 py-3 rounded-2xl font-medium cursor-pointer transition ${active ? 'bg-blue-50 text-blue-600' : 'text-slate-700 hover:bg-slate-100'}`}>
@@ -133,7 +153,11 @@ const NavItem = ({ icon, label, active = false }) => (
 );
 
 const StatCard = ({ title, count, color, icon, status }) => {
-  const colors = { blue: "bg-blue-50 text-blue-600", emerald: "bg-emerald-50 text-emerald-600", slate: "bg-slate-50 text-slate-600" };
+  const colors = { 
+    blue: "bg-blue-50 text-blue-600", 
+    emerald: "bg-emerald-50 text-emerald-600", 
+    slate: "bg-slate-50 text-slate-600" 
+  };
   return (
     <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
       <div className="flex justify-between">
@@ -148,18 +172,49 @@ const StatCard = ({ title, count, color, icon, status }) => {
   );
 };
 
-const RequestItem = ({ name, date, status }) => {
-  const styles = { "Approved": "bg-emerald-100 text-emerald-700", "Under Review": "bg-amber-100 text-amber-700", "Ready for Pickup": "bg-blue-100 text-blue-700" };
+const RequestItem = ({ name, description, date, status, isAdmin, onApprove, onReject }) => {
+  const styles = { 
+    "Approved": "bg-emerald-100 text-emerald-700", 
+    "Under Review": "bg-amber-100 text-amber-700", 
+    "Ready for Pickup": "bg-blue-100 text-blue-700",
+    "Rejected": "bg-red-100 text-red-700"
+  };
+
   return (
-    <div className="flex items-center justify-between p-6 rounded-2xl border border-slate-100">
+    <div className="flex items-center justify-between p-6 rounded-2xl border border-slate-100 hover:bg-slate-50 transition-all">
       <div className="flex items-center gap-5">
-        <div className="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center text-slate-500"><FileText size={28} /></div>
+        <div className="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center text-slate-500">
+          <FileText size={28} />
+        </div>
         <div>
           <p className="font-semibold text-lg">{name}</p>
           <p className="text-slate-500 text-sm">Requested on {date}</p>
+          {description && <p className="text-slate-400 text-xs italic mt-1">Note: {description}</p>}
         </div>
       </div>
-      <span className={`px-6 py-2.5 rounded-2xl text-sm font-bold ${styles[status] || 'bg-slate-100'}`}>{status}</span>
+      
+      <div className="flex items-center gap-4">
+        <span className={`px-6 py-2.5 rounded-2xl text-sm font-bold ${styles[status] || 'bg-slate-100'}`}>
+          {status}
+        </span>
+        
+        {isAdmin && status === "Under Review" && (
+          <div className="flex gap-2">
+            <button 
+              onClick={onApprove} 
+              className="bg-emerald-600 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-emerald-700 transition-colors"
+            >
+              Approve
+            </button>
+            <button 
+              onClick={onReject} 
+              className="bg-red-500 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-red-600 transition-colors"
+            >
+              Reject
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
