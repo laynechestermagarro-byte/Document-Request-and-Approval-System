@@ -1,77 +1,67 @@
 const router = require('express').Router();
-const Document = require('../models/Document');
-const User = require('../models/User');
+const Request = require('../models/Request');
+const multer = require('multer');
+const path = require('path');
 
-/**
- * @swagger
- * /api/docs/all:
- * get:
- * summary: Get documents based on role (Admin sees all, User sees own)
- * tags: [Documents]
- * parameters:
- * - in: query
- * name: role
- * schema:
- * type: string
- * - in: query
- * name: userId
- * schema:
- * type: string
- */
-router.get('/all', async (req, res) => {
+// Multer Setup
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, 'uploads/'),
+  filename: (req, file, cb) => cb(null, Date.now() + '-' + file.originalname)
+});
+
+const upload = multer({ storage });
+
+// ====================== CREATE REQUEST ======================
+router.post('/create', upload.single('file'), async (req, res) => {
+  console.log("📥 Body:", req.body);
+  console.log("📎 File:", req.file);
+
   try {
-    const { role, userId } = req.query;
-    let query = {};
+    const { requester, requesterName, documentType, description } = req.body;
 
-    // Task 3.4: Logic to filter by user unless they are an Admin
-    if (role !== 'Admin') {
-      if (!userId) {
-        return res.status(400).json({ error: "User ID is required for non-admins" });
-      }
-      query = { requester: userId };
+    if (!requester || !documentType) {
+      return res.status(400).json({ message: "Requester and Document Type are required" });
     }
 
-    // Task 2.5: Ensure description is included and requester name is populated
-    const docs = await Document.find(query)
-      .populate('requester', 'name email')
-      .sort({ createdAt: -1 });
-      
-    res.json(docs);
+    const newRequest = new Request({
+      requester,
+      requesterName: requesterName || "Unknown User",
+      documentType,
+      description: description || "",
+      status: 'Pending',
+      fileName: req.file ? req.file.filename : null,
+      filePath: req.file ? req.file.path : null,
+    });
+
+    const savedRequest = await newRequest.save();
+    res.status(201).json(savedRequest);
   } catch (err) {
-    res.status(500).json({ error: "Failed to fetch documents", message: err.message });
+    console.error("Create Request Error:", err);
+    res.status(500).json({ message: "Error creating request", error: err.message });
   }
 });
 
-/**
- * @swagger
- * /api/docs/status/{id}:
- * patch:
- * summary: Update document status (Approve/Reject)
- * tags: [Documents]
- */
-router.patch('/status/:id', async (req, res) => {
+// ====================== GET ALL REQUESTS ======================
+router.get('/all', async (req, res) => {
   try {
-    const { status } = req.body;
-    
-    // Validate that the status is one of your allowed types
-    const allowedStatuses = ['Under Review', 'Approved', 'Ready for Pickup', 'Rejected'];
-    if (!allowedStatuses.includes(status)) {
-      return res.status(400).json({ error: "Invalid status update" });
+    const { role, userId } = req.query;
+
+    let query = {};
+
+    if (role === 'Requester' && userId) {
+      query = { requester: userId };
     }
+    // Admin sees all requests
+    // You can add more role logic here later
 
-    const updatedDoc = await Document.findByIdAndUpdate(
-      req.params.id,
-      { status: status },
-      { new: true } // Returns the updated document instead of the old one
-    );
+    const requests = await Request.find(query)
+      .populate('requester', 'name email')
+      .sort({ createdAt: -1 });
 
-    if (!updatedDoc) {
-      return res.status(404).json({ error: "Document not found" });
-    }
-
-    res.json(updatedDoc);
+    res.json(requests);
   } catch (err) {
-    res.status(400).json({ error: "Status update failed", message: err.message });
+    console.error("Fetch Requests Error:", err);
+    res.status(500).json({ message: "Failed to fetch requests", error: err.message });
   }
 });
 

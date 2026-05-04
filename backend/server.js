@@ -1,6 +1,4 @@
 const dns = require('dns');
-
-// Force reliable DNS servers (helps with connection issues)
 dns.setServers(['8.8.8.8', '8.8.4.4']);
 
 const express = require('express');
@@ -10,7 +8,7 @@ const swaggerUi = require('swagger-ui-express');
 const swaggerJsdoc = require('swagger-jsdoc');
 require('dotenv').config();
 
-// Suppress swagger deprecation warning
+// Suppress only swagger-jsdoc deprecation warning
 const originalEmitWarning = process.emitWarning;
 process.emitWarning = (warning, type, ...args) => {
   if (type === 'DeprecationWarning' && String(warning).includes('url.parse')) {
@@ -25,7 +23,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// ====================== SWAGGER ======================
+// ====================== SWAGGER CONFIG ======================
 const swaggerOptions = {
   definition: {
     openapi: '3.0.0',
@@ -34,7 +32,12 @@ const swaggerOptions = {
       version: '1.0.0',
       description: 'API for National University Document Request System',
     },
-    servers: [{ url: 'http://localhost:5000' }],
+    servers: [
+      { 
+        url: 'http://localhost:5000',
+        description: 'Development server'
+      }
+    ],
   },
   apis: ['./routes/*.js'],
 };
@@ -53,7 +56,10 @@ mongoose
 
 // ====================== ROUTES ======================
 app.use('/api/auth', require('./routes/authRoutes'));
-app.use('/api/requests', require('./routes/requestRoutes'));   // ← Very Important
+app.use('/api/docs', require('./routes/docRoutes'));
+
+// Optional: If you have a separate requestRoutes file
+// app.use('/api/requests', require('./routes/requestRoutes'));
 
 // ====================== SERVER ======================
 const PORT = process.env.PORT || 5000;

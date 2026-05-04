@@ -36,8 +36,42 @@ const bcrypt = require('bcryptjs');
  *       201:
  *         description: User registered successfully
  *       400:
- *         description: Bad request (missing fields or email exists)
- *
+ *         description: Bad request
+ */
+router.post('/register', async (req, res) => {
+  try {
+    const { name, email, password, role } = req.body;
+    if (!name || !email || !password) {
+      return res.status(400).json({ error: "Name, email and password are required" });
+    }
+
+    const normalizedEmail = email.toLowerCase();
+    let existingUser = await User.findOne({ email: normalizedEmail });
+
+    if (existingUser) {
+      return res.status(400).json({ error: "Email already exists" });
+    }
+
+    // Hash password before saving
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    const user = new User({
+      name,
+      email: normalizedEmail,
+      password: hashedPassword,
+      role: role || 'Requester'
+    });
+
+    await user.save();
+    res.status(201).json({ message: "User registered successfully!" });
+  } catch (err) {
+    res.status(400).json({ error: "Registration failed", message: err.message });
+  }
+});
+
+/**
+ * @swagger
  * /api/auth/login:
  *   post:
  *     summary: Log in to get an authentication token
@@ -61,34 +95,6 @@ const bcrypt = require('bcryptjs');
  *       401:
  *         description: Invalid email or password
  */
-router.post('/register', async (req, res) => {
-  try {
-    const { name, email, password, role } = req.body;
-    if (!name || !email || !password) {
-      return res.status(400).json({ error: "Name, email and password are required" });
-    }
-
-    const normalizedEmail = email.toLowerCase();
-    let existingUser = await User.findOne({ email: normalizedEmail });
-
-    if (existingUser) {
-      return res.status(400).json({ error: "Email already exists" });
-    }
-
-    const user = new User({
-      name,
-      email: normalizedEmail,
-      password,           // Note: You should hash this before saving (recommended improvement)
-      role: role || 'Requester'
-    });
-
-    await user.save();
-    res.status(201).json({ message: "User registered successfully!" });
-  } catch (err) {
-    res.status(400).json({ error: "Registration failed", message: err.message });
-  }
-});
-
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -101,10 +107,12 @@ router.post('/login', async (req, res) => {
         process.env.JWT_SECRET,
         { expiresIn: '30m' }
       );
+
       res.json({ 
         token, 
         role: user.role, 
-        name: user.name 
+        name: user.name,
+        userId: user._id.toString()
       });
     } else {
       res.status(401).json({ message: "Invalid email or password" });
