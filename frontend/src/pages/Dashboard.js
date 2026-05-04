@@ -36,7 +36,7 @@ const RequestItem = ({ name, description, date, status, isAdmin, onApprove, onRe
   const styles = {
     "Approved": "bg-emerald-50 text-emerald-600 border-emerald-100",
     "Under Review": "bg-amber-50 text-amber-600 border-amber-100",
-    "Ready for Pickup": "bg-blue-50 text-blue-600 border-blue-100",
+    "Ready": "bg-blue-50 text-blue-600 border-blue-100",
     "Rejected": "bg-red-50 text-red-600 border-red-100"
   };
 
@@ -61,28 +61,10 @@ const RequestItem = ({ name, description, date, status, isAdmin, onApprove, onRe
         <span className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border ${styles[status] || 'bg-slate-50'}`}>
           {status}
         </span>
-        {isAdmin && status === "Under Review" && (
-          <div className="flex gap-2">
-            <button
-              onClick={onApprove}
-              className="bg-emerald-600 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-sm hover:bg-emerald-700"
-            >
-              Approve
-            </button>
-            <button
-              onClick={onReject}
-              className="bg-red-500 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-sm hover:bg-red-600"
-            >
-              Reject
-            </button>
-          </div>
-        )}
       </div>
     </div>
   );
 };
-
-// ==================== MAIN DASHBOARD ====================
 
 const Dashboard = () => {
   const userName = localStorage.getItem('name') || "User";
@@ -101,7 +83,6 @@ const Dashboard = () => {
 
   const fetchRequests = useCallback(async () => {
     if (!userId || !token) {
-      console.warn("Missing userId or token");
       setLoading(false);
       return;
     }
@@ -122,17 +103,6 @@ const Dashboard = () => {
     fetchRequests();
   }, [fetchRequests]);
 
-  const handleStatusUpdate = async (docId, newStatus) => {
-    try {
-      await axiosAuth.patch(`/docs/status/${docId}`, { status: newStatus });
-      alert(`Request ${newStatus} successfully!`);
-      fetchRequests();
-    } catch (err) {
-      alert("Failed to update status.");
-      console.error(err);
-    }
-  };
-
   const handleSignOut = () => {
     if (window.confirm("Are you sure you want to sign out?")) {
       localStorage.clear();
@@ -140,9 +110,9 @@ const Dashboard = () => {
     }
   };
 
-  const activeCount = requests.filter(r => r.status === 'Under Review').length;
-  const readyCount = requests.filter(r => r.status === 'Ready for Pickup').length;
-  const totalCompleted = requests.filter(r => ['Approved', 'Ready for Pickup'].includes(r.status)).length;
+  const activeCount = requests.filter(r => ['Pending', 'Under Review'].includes(r.status)).length;
+  const readyCount = requests.filter(r => r.status === 'Ready').length;
+  const totalCompleted = requests.filter(r => ['Approved', 'Ready'].includes(r.status)).length;
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex font-sans">
@@ -160,10 +130,7 @@ const Dashboard = () => {
         </nav>
 
         <div className="absolute bottom-8 left-6 right-6">
-          <button
-            onClick={handleSignOut}
-            className="w-full bg-red-50 text-red-600 py-3.5 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-red-100 transition"
-          >
+          <button onClick={handleSignOut} className="w-full bg-red-50 text-red-600 py-3.5 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-red-100 transition">
             <LogOut size={18} /> Sign Out
           </button>
         </div>
@@ -174,11 +141,7 @@ const Dashboard = () => {
         <nav className="bg-white border-b border-slate-200 px-10 py-5 flex justify-between items-center sticky top-0 z-10">
           <div className="relative w-96">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
-            <input
-              type="text"
-              placeholder="Search..."
-              className="w-full pl-12 pr-4 py-3 bg-slate-100 rounded-2xl text-sm outline-none focus:ring-2 ring-blue-100 transition"
-            />
+            <input type="text" placeholder="Search..." className="w-full pl-12 pr-4 py-3 bg-slate-100 rounded-2xl text-sm outline-none focus:ring-2 ring-blue-100 transition" />
           </div>
 
           <div className="flex items-center gap-3 border-l pl-6 border-slate-200">
@@ -186,11 +149,7 @@ const Dashboard = () => {
               <p className="font-bold text-slate-900 text-sm">{userName}</p>
               <p className="text-[10px] uppercase text-blue-500 font-bold">{userRole}</p>
             </div>
-            <img
-              className="w-10 h-10 rounded-full"
-              src={`https://ui-avatars.com/api/?name=${encodeURIComponent(userName)}&background=3b82f6&color=fff`}
-              alt="profile"
-            />
+            <img className="w-10 h-10 rounded-full" src={`https://ui-avatars.com/api/?name=${encodeURIComponent(userName)}&background=3b82f6&color=fff`} alt="profile" />
           </div>
         </nav>
 
@@ -212,15 +171,11 @@ const Dashboard = () => {
                 requests.map(req => (
                   <RequestItem
                     key={req._id}
-                    name={userRole === 'Admin' 
-                      ? `${req.requester?.name || 'User'} - ${req.documentType}` 
-                      : req.documentType}
+                    name={req.documentType}
                     description={req.description}
-                    date={new Date(req.createdAt).toLocaleDateString()}
+                    date={new Date(req.createdAt || req.submittedAt).toLocaleDateString()}
                     status={req.status}
-                    isAdmin={userRole === 'Admin'}
-                    onApprove={() => handleStatusUpdate(req._id, 'Approved')}
-                    onReject={() => handleStatusUpdate(req._id, 'Rejected')}
+                    isAdmin={false}
                   />
                 ))
               ) : (
@@ -232,10 +187,7 @@ const Dashboard = () => {
       </div>
 
       {userRole === 'Requester' && (
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="fixed bottom-8 right-8 bg-blue-600 text-white px-8 py-4 rounded-2xl font-bold flex items-center gap-3 shadow-xl hover:bg-blue-700 hover:scale-105 transition-all"
-        >
+        <button onClick={() => setIsModalOpen(true)} className="fixed bottom-8 right-8 bg-blue-600 text-white px-8 py-4 rounded-2xl font-bold flex items-center gap-3 shadow-xl hover:bg-blue-700">
           <Plus size={24} /> New Request
         </button>
       )}

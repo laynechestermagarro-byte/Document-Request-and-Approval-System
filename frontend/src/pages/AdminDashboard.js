@@ -1,19 +1,43 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import axios from 'axios';
 import neuLogo from '../assets/neu-logo.png';
 import { Search, Eye, CheckCircle, XCircle } from 'lucide-react';
 
 const AdminDashboard = () => {
+  const [requests, setRequests] = useState([]);
   const [activeTab, setActiveTab] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
+  const [loading, setLoading] = useState(true);
 
-  const requests = [
-    { id: "23-12345-678", type: "Transcript of Records", requester: "Badong", date: "April 18, 2026", status: "Pending" },
-    { id: "23-12345-679", type: "Certificate of Good Moral", requester: "demo:Maria Santos", date: "April 09, 2026", status: "Under Review" },
-    { id: "23-12345-680", type: "Diploma", requester: "demo:Pedro Reyes", date: "April 08, 2026", status: "Approved" },
-    { id: "23-12345-681", type: "Honorable Dismissal", requester: "demo:Ana Lopez", date: "April 07, 2026", status: "Ready" },
-  ];
+  const token = localStorage.getItem('token');
 
-  const tabs = ['All', 'Pending', 'Under Review', 'Approved', 'Ready', 'Rejected'];
+  const axiosAuth = axios.create({
+    baseURL: 'http://localhost:5000/api',
+    headers: { Authorization: `Bearer ${token}` }
+  });
+
+  const fetchRequests = useCallback(async () => {
+    try {
+      const res = await axiosAuth.get('/docs/all', { params: { role: 'Admin' } });
+      setRequests(res.data);
+    } catch (err) {
+      console.error("Error fetching requests:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, [axiosAuth]);
+
+  useEffect(() => {
+    fetchRequests();
+  }, [fetchRequests]);
+
+  const filteredRequests = requests.filter(req => {
+    const matchesTab = activeTab === 'All' || req.status === activeTab;
+    const matchesSearch = 
+      req.documentType?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      req.requesterName?.toLowerCase().includes(searchTerm.toLowerCase());
+    return matchesTab && matchesSearch;
+  });
 
   const handleSignOut = () => {
     if (window.confirm("Are you sure you want to sign out?")) {
@@ -21,19 +45,6 @@ const AdminDashboard = () => {
       window.location.href = '/login';
     }
   };
-
-  const filteredRequests = requests.filter(req => {
-    const matchesTab = activeTab === 'All' || req.status === activeTab;
-    const matchesSearch = req.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          req.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          req.requester.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesTab && matchesSearch;
-  });
-
-  // Action Handlers (for Week 13)
-  const handleView = (id) => alert(`Viewing details for request ${id}`);
-  const handleApprove = (id) => alert(`Request ${id} has been Approved`);
-  const handleReject = (id) => alert(`Request ${id} has been Rejected`);
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex font-sans">
@@ -55,11 +66,11 @@ const AdminDashboard = () => {
         </div>
 
         <nav className="space-y-1 flex-1">
-          <NavItem label="Admin Command Center" active />
-          <NavItem label="All Requests" />
-          <NavItem label="Users Management" />
-          <NavItem label="Document Types" />
-          <NavItem label="Reports & Analytics" />
+          <div className="px-5 py-3 rounded-2xl font-medium bg-blue-50 text-blue-700">Admin Command Center</div>
+          <div className="px-5 py-3 rounded-2xl font-medium hover:bg-slate-100 text-slate-700 cursor-pointer">All Requests</div>
+          <div className="px-5 py-3 rounded-2xl font-medium hover:bg-slate-100 text-slate-700 cursor-pointer">Users Management</div>
+          <div className="px-5 py-3 rounded-2xl font-medium hover:bg-slate-100 text-slate-700 cursor-pointer">Document Types</div>
+          <div className="px-5 py-3 rounded-2xl font-medium hover:bg-slate-100 text-slate-700 cursor-pointer">Reports & Analytics</div>
         </nav>
 
         <div className="mt-auto pt-6 border-t">
@@ -94,7 +105,6 @@ const AdminDashboard = () => {
             </div>
           </div>
 
-          {/* Search */}
           <div className="relative mb-8">
             <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
             <input
@@ -106,9 +116,8 @@ const AdminDashboard = () => {
             />
           </div>
 
-          {/* Tabs */}
           <div className="flex gap-2 mb-8 overflow-x-auto pb-3">
-            {tabs.map((tab) => (
+            {['All', 'Pending', 'Under Review', 'Approved', 'Ready', 'Rejected'].map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -121,7 +130,6 @@ const AdminDashboard = () => {
             ))}
           </div>
 
-          {/* Table */}
           <div className="bg-white rounded-3xl shadow-sm overflow-hidden">
             <div className="grid grid-cols-12 bg-slate-50 px-8 py-5 text-sm font-semibold text-slate-500 border-b">
               <div className="col-span-2">Tracking ID</div>
@@ -132,52 +140,40 @@ const AdminDashboard = () => {
               <div className="col-span-1 text-right">Actions</div>
             </div>
 
-            {filteredRequests.map((req, index) => (
-              <div key={index} className="grid grid-cols-12 px-8 py-6 border-b hover:bg-slate-50 items-center">
-                <div className="col-span-2 font-medium">{req.id}</div>
-                <div className="col-span-3">{req.type}</div>
-                <div className="col-span-2">{req.requester}</div>
-                <div className="col-span-2 text-slate-600">{req.date}</div>
-                <div className="col-span-2">
-                  <span className={`px-4 py-1.5 rounded-full text-xs font-medium ${
-                    req.status === 'Approved' ? 'bg-emerald-100 text-emerald-700' :
-                    req.status === 'Pending' ? 'bg-amber-100 text-amber-700' :
-                    req.status === 'Under Review' ? 'bg-blue-100 text-blue-700' :
-                    req.status === 'Ready' ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-600'
-                  }`}>
-                    {req.status}
-                  </span>
+            {loading ? (
+              <p className="text-center py-10">Loading requests...</p>
+            ) : filteredRequests.length === 0 ? (
+              <p className="text-center py-10 text-slate-500">No requests found.</p>
+            ) : (
+              filteredRequests.map((req) => (
+                <div key={req._id} className="grid grid-cols-12 px-8 py-6 border-b hover:bg-slate-50 items-center">
+                  <div className="col-span-2 font-medium">{req._id?.slice(-8)}</div>
+                  <div className="col-span-3">{req.documentType}</div>
+                  <div className="col-span-2">{req.requesterName}</div>
+                  <div className="col-span-2 text-slate-600">
+                    {new Date(req.createdAt).toLocaleDateString()}
+                  </div>
+                  <div className="col-span-2">
+                    <span className={`px-4 py-1.5 rounded-full text-xs font-medium ${
+                      req.status === 'Approved' ? 'bg-emerald-100 text-emerald-700' :
+                      req.status === 'Pending' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'
+                    }`}>
+                      {req.status}
+                    </span>
+                  </div>
+                  <div className="col-span-1 text-right flex gap-2 justify-end">
+                    <Eye size={18} className="text-blue-600 cursor-pointer" />
+                    <CheckCircle size={18} className="text-emerald-600 cursor-pointer" />
+                    <XCircle size={18} className="text-red-600 cursor-pointer" />
+                  </div>
                 </div>
-                <div className="col-span-1 text-right flex gap-2 justify-end">
-                  <button onClick={() => handleView(req.id)} className="text-blue-600 hover:text-blue-700 p-1">
-                    <Eye size={18} />
-                  </button>
-                  {req.status === 'Pending' || req.status === 'Under Review' ? (
-                    <>
-                      <button onClick={() => handleApprove(req.id)} className="text-emerald-600 hover:text-emerald-700 p-1">
-                        <CheckCircle size={18} />
-                      </button>
-                      <button onClick={() => handleReject(req.id)} className="text-red-600 hover:text-red-700 p-1">
-                        <XCircle size={18} />
-                      </button>
-                    </>
-                  ) : null}
-                </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
       </div>
     </div>
   );
 };
-
-const NavItem = ({ label, active = false }) => (
-  <div className={`px-5 py-3 rounded-2xl font-medium cursor-pointer transition ${
-    active ? 'bg-blue-50 text-blue-700' : 'hover:bg-slate-100 text-slate-700'
-  }`}>
-    {label}
-  </div>
-);
 
 export default AdminDashboard;

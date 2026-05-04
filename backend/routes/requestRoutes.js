@@ -9,21 +9,21 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
-// GET all requests
+// GET all requests - filtered by user role
 router.get('/all', async (req, res) => {
   try {
-    const requests = await Request.find().sort({ createdAt: -1 });
-    res.json(requests);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Failed to fetch requests" });
-  }
-});
+    const { role, userId } = req.query;
 
-// Also support GET / (in case frontend calls without /all)
-router.get('/', async (req, res) => {
-  try {
-    const requests = await Request.find().sort({ createdAt: -1 });
+    let filter = {};
+    if (role === 'Requester' && userId) {
+      filter.requester = userId;
+    }
+    // Admin sees everything
+
+    const requests = await Request.find(filter)
+      .populate('requester', 'name email')
+      .sort({ createdAt: -1 });
+
     res.json(requests);
   } catch (err) {
     console.error(err);
@@ -34,15 +34,15 @@ router.get('/', async (req, res) => {
 // CREATE new request
 router.post('/create', upload.single('file'), async (req, res) => {
   try {
-    const { documentType, description } = req.body;
+    const { documentType, description, userId, requesterName } = req.body;
 
     if (!documentType) {
       return res.status(400).json({ message: "Document type is required" });
     }
 
     const newRequest = new Request({
-      requester: "67f8c9d2e123456789abcdef",
-      requesterName: "Badong",
+      requester: userId || "67f8c9d2e123456789abcdef",
+      requesterName: requesterName || "Badong",
       documentType,
       description: description || "",
       fileName: req.file ? req.file.filename : null,
