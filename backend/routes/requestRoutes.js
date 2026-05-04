@@ -9,7 +9,30 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
-router.post('/', upload.single('file'), async (req, res) => {
+// GET all requests
+router.get('/all', async (req, res) => {
+  try {
+    const requests = await Request.find().sort({ createdAt: -1 });
+    res.json(requests);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Failed to fetch requests" });
+  }
+});
+
+// Also support GET / (in case frontend calls without /all)
+router.get('/', async (req, res) => {
+  try {
+    const requests = await Request.find().sort({ createdAt: -1 });
+    res.json(requests);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Failed to fetch requests" });
+  }
+});
+
+// CREATE new request
+router.post('/create', upload.single('file'), async (req, res) => {
   try {
     const { documentType, description } = req.body;
 
@@ -18,7 +41,7 @@ router.post('/', upload.single('file'), async (req, res) => {
     }
 
     const newRequest = new Request({
-      requester: "67f8c9d2e123456789abcdef", // Replace with real user ID from JWT later
+      requester: "67f8c9d2e123456789abcdef",
       requesterName: "Badong",
       documentType,
       description: description || "",

@@ -1,3 +1,8 @@
+const dns = require('dns');
+
+// Force reliable DNS servers (Fix for querySrv ECONNREFUSED)
+dns.setServers(['8.8.8.8', '8.8.4.4']);
+
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -53,7 +58,7 @@ mongoose
 
 // ====================== ROUTES ======================
 app.use('/api/auth', require('./routes/authRoutes'));
-app.use('/api/requests', require('./routes/requestRoutes'));   // Request submission route
+app.use('/api/docs', require('./routes/requestRoutes'));
 
 // ====================== SERVER ======================
 const PORT = process.env.PORT || 5000;
