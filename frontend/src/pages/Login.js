@@ -24,44 +24,49 @@ const Login = () => {
     };
 
     const handleLogin = async (e) => {
-        e.preventDefault();
-        setMsg("");
-        
-        if (!validateForm()) return;
+    e.preventDefault();
+    setMsg("");
+    
+    if (!validateForm()) return;
+    setLoading(true);
 
-        setLoading(true);
+    try {
+        const res = await axios.post('http://localhost:5000/api/auth/login', { email, password });
+        const data = res.data;
 
-        try {
-            const res = await axios.post('http://localhost:5000/api/auth/login', { email, password });
+        // 1. Extract the ID with fallbacks
+        const userId = data.id || data.userId || data._id;
 
-            const data = res.data;
-
-            localStorage.setItem('token', data.token);
-            localStorage.setItem('role', data.role);
-            localStorage.setItem('name', data.name || 'User');
-            
-            // Save userId with multiple fallbacks
-            const userId = data.id || data.userId || data._id || data.user?.id || data.user?._id;
-            localStorage.setItem('userId', data.id || data.userId || data._id || '');
-
-            console.log("✅ Login successful. Saved User ID:", userId);
-
-            setMsg("✅ Login Successful! Redirecting...");
-
-            setTimeout(() => {
-                if (data.role === 'Admin') {
-                    navigate('/admin');
-                } else {
-                    navigate('/dashboard');
-                }
-            }, 1000);
-
-        } catch (err) {
-            setMsg(`❌ ${err.response?.data?.message || "Invalid credentials"}`);
-        } finally {
+        if (!userId) {
+            console.error("❌ Backend did not return a User ID!");
+            setMsg("❌ Server error: Missing User ID. Contact Admin.");
             setLoading(false);
+            return;
         }
-    };
+
+        // 2. Save to localStorage
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('role', data.role);
+        localStorage.setItem('name', data.name || 'User');
+        localStorage.setItem('userId', userId); // No more "undefined" strings
+
+        console.log("✅ Login successful. Saved User ID:", userId);
+        setMsg("✅ Login Successful! Redirecting...");
+
+        setTimeout(() => {
+            if (data.role === 'Admin') {
+                navigate('/admin');
+            } else {
+                navigate('/dashboard');
+            }
+        }, 1000);
+
+    } catch (err) {
+        setMsg(`❌ ${err.response?.data?.message || "Invalid credentials"}`);
+    } finally {
+        setLoading(false);
+    }
+};
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
