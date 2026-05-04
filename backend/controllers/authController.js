@@ -1,28 +1,33 @@
-const express = require('express');
-const router = express.Router();
+const router = require('express').Router();
 const User = require('../models/User');
+const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
 
-// Register Route
-router.post('/register', async (req, res) => {
+// Login Route
+router.post('/login', async (req, res) => {
   try {
-    const { name, email, password, role } = req.body;
-    
-    // Check if user exists
-    let user = await User.findOne({ email: email.toLowerCase() });
-    if (user) return res.status(400).json({ error: "Email already exists" });
+    const { email, password } = req.body;
+    const user = await User.findOne({ email: email.toLowerCase() });
 
-    user = new User({ name, email: email.toLowerCase(), password, role });
-    await user.save();
+    if (user && await bcrypt.compare(password, user.password)) {
+      const token = jwt.sign(
+        { id: user._id, role: user.role },
+        process.env.JWT_SECRET,
+        { expiresIn: '1h' }
+      );
 
-    res.status(201).json({ message: "User registered successfully" });
+      // Return the ID and Name so localStorage can save them
+      res.json({ 
+        token, 
+        role: user.role, 
+        name: user.name,
+        id: user._id 
+      });
+    } else {
+      res.status(401).json({ message: "Invalid email or password" });
+    }
   } catch (err) {
-    // Send the real error back to Postman instead of a generic message
-    console.error("DEBUG ERROR:", err.message);
-    res.status(400).json({ 
-      error: "Registration failed", 
-      message: err.message,
-      stack: err.name 
-    });
+    res.status(500).json({ error: "Login failed", message: err.message });
   }
 });
 

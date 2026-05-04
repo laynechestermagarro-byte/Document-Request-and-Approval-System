@@ -39,7 +39,12 @@ const Login = () => {
             localStorage.setItem('token', data.token);
             localStorage.setItem('role', data.role);
             localStorage.setItem('name', data.name || 'User');
-            localStorage.setItem('userId', res.data.id || res.data.userId || res.data._id || '');
+            
+            // Save userId with multiple fallbacks
+            const userId = data.id || data.userId || data._id || data.user?.id || data.user?._id;
+            localStorage.setItem('userId', data.id || data.userId || data._id || '');
+
+            console.log("✅ Login successful. Saved User ID:", userId);
 
             setMsg("✅ Login Successful! Redirecting...");
 
@@ -49,11 +54,10 @@ const Login = () => {
                 } else {
                     navigate('/dashboard');
                 }
-            }, 1200);
+            }, 1000);
 
         } catch (err) {
-            const errorMessage = err.response?.data?.message || "Invalid email or password";
-            setMsg(`❌ ${errorMessage}`);
+            setMsg(`❌ ${err.response?.data?.message || "Invalid credentials"}`);
         } finally {
             setLoading(false);
         }
@@ -94,14 +98,14 @@ const Login = () => {
 
                     <button 
                         disabled={loading} 
-                        className={`w-full py-4 rounded-xl font-bold text-white transition-all transform active:scale-95 ${loading ? 'bg-slate-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-200'}`}
+                        className={`w-full py-4 rounded-xl font-bold text-white transition-all ${loading ? 'bg-slate-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}
                     >
                         {loading ? "Authenticating..." : "Sign In"}
                     </button>
                 </form>
 
                 {msg && (
-                    <div className={`mt-6 text-center p-3 rounded-xl text-sm font-bold animate-pulse ${msg.includes('✅') ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-rose-50 text-rose-700 border border-rose-100'}`}>
+                    <div className={`mt-6 text-center p-3 rounded-xl text-sm font-bold ${msg.includes('✅') ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
                         {msg}
                     </div>
                 )}

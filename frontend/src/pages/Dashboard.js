@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import neuLogo from '../assets/neu-logo.png';
 import { Search, Plus, FileText, Clock, CheckCircle, User, LogOut } from 'lucide-react';
@@ -14,32 +14,44 @@ const Dashboard = () => {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // UseCallback prevents unnecessary re-renders and allows passing to child components
+  const fetchMyRequests = useCallback(async () => {
+    if (!token || !userId || userId === 'undefined') {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      // Ensure this endpoint matches your server.js (app.use('/api/docs', ...))
+      const res = await axios.get('http://localhost:5000/api/docs/all', {
+        headers: { Authorization: `Bearer ${token}` },
+        params: { role: userRole, userId: userId }
+      });
+      setRequests(res.data || []);
+    } catch (err) {
+      console.error("Error fetching requests:", err.response?.data || err);
+    } finally {
+      setLoading(false);
+    }
+  }, [token, userId, userRole]);
+
   useEffect(() => {
-    const fetchMyRequests = async () => {
-      if (!token || !userId) {
-        setLoading(false);
-        return;
-      }
-
-      try {
-        const res = await axios.get('http://localhost:5000/api/requests', {
-          headers: { Authorization: `Bearer ${token}` },
-          params: { role: 'Requester', userId }
-        });
-        setRequests(res.data || []);
-      } catch (err) {
-        console.error("Error fetching requests:", err.response?.data || err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchMyRequests();
-  }, [token, userId]);
+  }, [fetchMyRequests]);
 
-  const activeCount = requests.filter(r => ['Pending', 'Under Review'].includes(r.status)).length;
-  const readyCount = requests.filter(r => r.status === 'Ready').length;
-  const totalCompleted = requests.filter(r => ['Approved', 'Ready'].includes(r.status)).length;
+  // Derived state for stats - Includes lowercase fallback for robustness
+  const activeCount = requests.filter(r => 
+    ['Pending', 'Under Review', 'pending', 'under review'].includes(r.status)
+  ).length;
+
+  const readyCount = requests.filter(r => 
+    ['Ready', 'ready'].includes(r.status)
+  ).length;
+
+  const totalCompleted = requests.filter(r => 
+    ['Approved', 'Ready', 'approved', 'ready'].includes(r.status)
+  ).length;
 
   const handleSignOut = () => {
     if (window.confirm("Are you sure you want to sign out?")) {
@@ -107,7 +119,7 @@ const Dashboard = () => {
                     key={req._id}
                     name={req.documentType}
                     description={req.description}
-                    date={new Date(req.createdAt || req.submittedAt).toLocaleDateString()}
+                    date={new Date(req.createdAt).toLocaleDateString()}
                     status={req.status}
                   />
                 ))
@@ -119,16 +131,26 @@ const Dashboard = () => {
         </main>
       </div>
 
-      <button onClick={() => setIsModalOpen(true)} className="fixed bottom-8 right-8 bg-blue-600 text-white px-8 py-4 rounded-2xl font-bold flex items-center gap-3 shadow-xl hover:bg-blue-700">
+      {/* FAB - Action Button */}
+      <button 
+        onClick={() => setIsModalOpen(true)} 
+        className="fixed bottom-8 right-8 bg-blue-600 text-white px-8 py-4 rounded-2xl font-bold flex items-center gap-3 shadow-xl hover:bg-blue-700 transition-all active:scale-95"
+      >
         <Plus size={24} /> New Request
       </button>
 
-      <Request isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+      {/* Request Modal - Passing fetchMyRequests to onSuccess */}
+      <Request 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)} 
+        onSuccess={fetchMyRequests} 
+      />
     </div>
   );
 };
 
-// NavItem Component
+// --- Sub-components (StatCard, NavItem, RequestItem) ---
+
 const NavItem = ({ icon, label, active = false }) => (
   <div className={`flex items-center gap-3 px-5 py-3.5 rounded-2xl font-bold cursor-pointer transition 
     ${active ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-50'}`}>
@@ -136,7 +158,6 @@ const NavItem = ({ icon, label, active = false }) => (
   </div>
 );
 
-// StatCard Component
 const StatCard = ({ title, count, color, icon, status }) => {
   const colors = {
     blue: "bg-blue-50 text-blue-600",
@@ -158,13 +179,18 @@ const StatCard = ({ title, count, color, icon, status }) => {
   );
 };
 
-// RequestItem Component
 const RequestItem = ({ name, description, date, status }) => {
   const styles = {
     "Approved": "bg-emerald-50 text-emerald-600 border-emerald-100",
+    "approved": "bg-emerald-50 text-emerald-600 border-emerald-100",
     "Under Review": "bg-amber-50 text-amber-600 border-amber-100",
+    "under review": "bg-amber-50 text-amber-600 border-amber-100",
     "Ready": "bg-blue-50 text-blue-600 border-blue-100",
-    "Rejected": "bg-red-50 text-red-600 border-red-100"
+    "ready": "bg-blue-50 text-blue-600 border-blue-100",
+    "Rejected": "bg-red-50 text-red-600 border-red-100",
+    "rejected": "bg-red-50 text-red-600 border-red-100",
+    "Pending": "bg-slate-50 text-slate-600 border-slate-200",
+    "pending": "bg-slate-50 text-slate-600 border-slate-200"
   };
 
   return (
@@ -185,7 +211,7 @@ const RequestItem = ({ name, description, date, status }) => {
       </div>
 
       <div className="flex items-center gap-4">
-        <span className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border ${styles[status] || 'bg-slate-50'}`}>
+        <span className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border ${styles[status] || 'bg-slate-50 text-slate-500 border-slate-100'}`}>
           {status}
         </span>
       </div>

@@ -1,6 +1,6 @@
 const dns = require('dns');
 
-// Force reliable DNS servers (Fix for querySrv ECONNREFUSED)
+// Force reliable DNS servers (helps with connection issues)
 dns.setServers(['8.8.8.8', '8.8.4.4']);
 
 const express = require('express');
@@ -10,7 +10,7 @@ const swaggerUi = require('swagger-ui-express');
 const swaggerJsdoc = require('swagger-jsdoc');
 require('dotenv').config();
 
-// Suppress only the swagger-jsdoc url.parse deprecation warning
+// Suppress swagger deprecation warning
 const originalEmitWarning = process.emitWarning;
 process.emitWarning = (warning, type, ...args) => {
   if (type === 'DeprecationWarning' && String(warning).includes('url.parse')) {
@@ -25,7 +25,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// ====================== SWAGGER CONFIGURATION ======================
+// ====================== SWAGGER ======================
 const swaggerOptions = {
   definition: {
     openapi: '3.0.0',
@@ -34,12 +34,7 @@ const swaggerOptions = {
       version: '1.0.0',
       description: 'API for National University Document Request System',
     },
-    servers: [
-      {
-        url: 'http://localhost:5000',
-        description: 'Development server',
-      },
-    ],
+    servers: [{ url: 'http://localhost:5000' }],
   },
   apis: ['./routes/*.js'],
 };
@@ -47,7 +42,7 @@ const swaggerOptions = {
 const swaggerDocs = swaggerJsdoc(swaggerOptions);
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocs));
 
-// ====================== DATABASE CONNECTION ======================
+// ====================== DATABASE ======================
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => console.log('✅ SUCCESS: Database Connected!'))
@@ -58,20 +53,20 @@ mongoose
 
 // ====================== ROUTES ======================
 app.use('/api/auth', require('./routes/authRoutes'));
-app.use('/api/docs', require('./routes/requestRoutes'));
+app.use('/api/requests', require('./routes/requestRoutes'));   // ← Very Important
 
 // ====================== SERVER ======================
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
-  console.log(`🚀 API is running on port ${PORT}`);
-  console.log(`📖 Swagger Docs: http://localhost:5000/api-docs`);
+  console.log(`🚀 Server running on http://localhost:${PORT}`);
+  console.log(`📖 Swagger Docs: http://localhost:${PORT}/api-docs`);
   console.log('✅ Server started successfully!');
 });
 
 // Graceful shutdown
 process.on('SIGTERM', () => {
-  console.log('🛑 SIGTERM received. Closing server...');
+  console.log('🛑 Shutting down server...');
   mongoose.connection.close();
   process.exit(0);
 });
