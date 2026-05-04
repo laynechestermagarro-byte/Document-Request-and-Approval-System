@@ -9,53 +9,43 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
-// GET all requests - filtered by user role
-router.get('/all', async (req, res) => {
+// GET all requests (Admin) or my requests (Requester)
+router.get('/', async (req, res) => {
   try {
     const { role, userId } = req.query;
-
     let filter = {};
+
     if (role === 'Requester' && userId) {
       filter.requester = userId;
     }
-    // Admin sees everything
 
-    const requests = await Request.find(filter)
-      .populate('requester', 'name email')
-      .sort({ createdAt: -1 });
-
+    const requests = await Request.find(filter).sort({ createdAt: -1 });
     res.json(requests);
   } catch (err) {
-    console.error(err);
     res.status(500).json({ message: "Failed to fetch requests" });
   }
 });
 
 // CREATE new request
-router.post('/create', upload.single('file'), async (req, res) => {
+router.post('/', upload.single('file'), async (req, res) => {
   try {
-    const { documentType, description, userId, requesterName } = req.body;
+    const { documentType, description, requester, requesterName } = req.body;
 
-    if (!documentType) {
-      return res.status(400).json({ message: "Document type is required" });
+    if (!documentType || !requester) {
+      return res.status(400).json({ message: "Document type and requester are required" });
     }
 
     const newRequest = new Request({
-      requester: userId || "67f8c9d2e123456789abcdef",
-      requesterName: requesterName || "Badong",
+      requester,
+      requesterName: requesterName || "Unknown",
       documentType,
       description: description || "",
       fileName: req.file ? req.file.filename : null,
       status: "Pending"
     });
 
-    await newRequest.save();
-
-    res.status(201).json({
-      success: true,
-      message: "Request submitted successfully!",
-      requestId: newRequest._id
-    });
+    const saved = await newRequest.save();
+    res.status(201).json({ success: true, message: "Request submitted!", request: saved });
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, message: "Failed to submit request" });

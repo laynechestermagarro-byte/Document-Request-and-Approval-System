@@ -13,16 +13,12 @@ const Login = () => {
 
     const validateForm = () => {
         const newErrors = {};
-        if (!email.trim()) {
-            newErrors.email = "Email is required";
-        } else if (!/\S+@\S+\.\S+/.test(email)) {
-            newErrors.email = "Please enter a valid email";
-        }
-        if (!password) {
-            newErrors.password = "Password is required";
-        } else if (password.length < 6) {
-            newErrors.password = "Password must be at least 6 characters";
-        }
+        if (!email.trim()) newErrors.email = "Email is required";
+        else if (!/\S+@\S+\.\S+/.test(email)) newErrors.email = "Please enter a valid email";
+
+        if (!password) newErrors.password = "Password is required";
+        else if (password.length < 6) newErrors.password = "Password must be at least 6 characters";
+
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
@@ -38,24 +34,22 @@ const Login = () => {
         try {
             const res = await axios.post('http://localhost:5000/api/auth/login', { email, password });
 
-            // CRITICAL FIX: Extract userId to prevent 'undefined' errors in dashboard
-            const { token, role, name, userId, id } = res.data;
+            const data = res.data;
 
-            localStorage.setItem('token', token);
-            localStorage.setItem('role', role);
-            localStorage.setItem('name', name || 'User');
-            // This line ensures the Request component can find the user ID
-            localStorage.setItem('userId', userId || id); 
+            localStorage.setItem('token', data.token);
+            localStorage.setItem('role', data.role);
+            localStorage.setItem('name', data.name || 'User');
+            localStorage.setItem('userId', res.data.id || res.data.userId || res.data._id || '');
 
             setMsg("✅ Login Successful! Redirecting...");
 
             setTimeout(() => {
-                if (role === 'Admin') {
+                if (data.role === 'Admin') {
                     navigate('/admin');
                 } else {
                     navigate('/dashboard');
                 }
-            }, 1500);
+            }, 1200);
 
         } catch (err) {
             const errorMessage = err.response?.data?.message || "Invalid email or password";

@@ -1,70 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import neuLogo from '../assets/neu-logo.png';
 import { Search, Plus, FileText, Clock, CheckCircle, User, LogOut } from 'lucide-react';
 import Request from '../components/Request';
-
-const NavItem = ({ icon, label, active = false }) => (
-  <div className={`flex items-center gap-3 px-5 py-3.5 rounded-2xl font-bold cursor-pointer transition 
-    ${active ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-50'}`}>
-    {icon} <span className="text-sm">{label}</span>
-  </div>
-);
-
-const StatCard = ({ title, count, color, icon, status }) => {
-  const colors = {
-    blue: "bg-blue-50 text-blue-600",
-    emerald: "bg-emerald-50 text-emerald-600",
-    slate: "bg-slate-50 text-slate-600"
-  };
-
-  return (
-    <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
-      <div className="flex justify-between items-start">
-        <div>
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{title}</p>
-          <h3 className="text-6xl font-black text-slate-900 mt-2">{count}</h3>
-        </div>
-        <div className={`p-4 rounded-2xl ${colors[color]}`}>{icon}</div>
-      </div>
-      <p className="text-xs font-bold text-slate-400 mt-6">{status}</p>
-    </div>
-  );
-};
-
-const RequestItem = ({ name, description, date, status, isAdmin, onApprove, onReject }) => {
-  const styles = {
-    "Approved": "bg-emerald-50 text-emerald-600 border-emerald-100",
-    "Under Review": "bg-amber-50 text-amber-600 border-amber-100",
-    "Ready": "bg-blue-50 text-blue-600 border-blue-100",
-    "Rejected": "bg-red-50 text-red-600 border-red-100"
-  };
-
-  return (
-    <div className="flex items-center justify-between p-6 rounded-2xl border border-slate-100 hover:bg-slate-50/50 transition-colors">
-      <div className="flex items-center gap-5">
-        <div className="w-14 h-14 bg-white border border-slate-100 rounded-2xl flex items-center justify-center text-slate-400">
-          <FileText size={24} />
-        </div>
-        <div className="text-left">
-          <p className="font-bold text-slate-900">{name}</p>
-          <p className="text-slate-400 text-xs font-medium">Submitted on {date}</p>
-          {description && (
-            <p className="text-slate-500 text-xs mt-2 italic bg-slate-50 px-3 py-1 rounded-lg inline-block">
-              “{description}”
-            </p>
-          )}
-        </div>
-      </div>
-
-      <div className="flex items-center gap-4">
-        <span className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border ${styles[status] || 'bg-slate-50'}`}>
-          {status}
-        </span>
-      </div>
-    </div>
-  );
-};
 
 const Dashboard = () => {
   const userName = localStorage.getItem('name') || "User";
@@ -76,32 +14,32 @@ const Dashboard = () => {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const axiosAuth = axios.create({
-    baseURL: 'http://localhost:5000/api',
-    headers: { Authorization: `Bearer ${token}` }
-  });
-
-  const fetchRequests = useCallback(async () => {
-    if (!userId || !token) {
-      setLoading(false);
-      return;
-    }
-
-    try {
-      const res = await axiosAuth.get('/docs/all', {
-        params: { role: userRole, userId }
-      });
-      setRequests(res.data);
-    } catch (err) {
-      console.error("Error fetching requests:", err.response?.data || err);
-    } finally {
-      setLoading(false);
-    }
-  }, [userRole, userId, token, axiosAuth]);
-
   useEffect(() => {
-    fetchRequests();
-  }, [fetchRequests]);
+    const fetchMyRequests = async () => {
+      if (!token || !userId) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const res = await axios.get('http://localhost:5000/api/requests', {
+          headers: { Authorization: `Bearer ${token}` },
+          params: { role: 'Requester', userId }
+        });
+        setRequests(res.data || []);
+      } catch (err) {
+        console.error("Error fetching requests:", err.response?.data || err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchMyRequests();
+  }, [token, userId]);
+
+  const activeCount = requests.filter(r => ['Pending', 'Under Review'].includes(r.status)).length;
+  const readyCount = requests.filter(r => r.status === 'Ready').length;
+  const totalCompleted = requests.filter(r => ['Approved', 'Ready'].includes(r.status)).length;
 
   const handleSignOut = () => {
     if (window.confirm("Are you sure you want to sign out?")) {
@@ -109,10 +47,6 @@ const Dashboard = () => {
       window.location.href = '/login';
     }
   };
-
-  const activeCount = requests.filter(r => ['Pending', 'Under Review'].includes(r.status)).length;
-  const readyCount = requests.filter(r => r.status === 'Ready').length;
-  const totalCompleted = requests.filter(r => ['Approved', 'Ready'].includes(r.status)).length;
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex font-sans">
@@ -175,7 +109,6 @@ const Dashboard = () => {
                     description={req.description}
                     date={new Date(req.createdAt || req.submittedAt).toLocaleDateString()}
                     status={req.status}
-                    isAdmin={false}
                   />
                 ))
               ) : (
@@ -186,13 +119,76 @@ const Dashboard = () => {
         </main>
       </div>
 
-      {userRole === 'Requester' && (
-        <button onClick={() => setIsModalOpen(true)} className="fixed bottom-8 right-8 bg-blue-600 text-white px-8 py-4 rounded-2xl font-bold flex items-center gap-3 shadow-xl hover:bg-blue-700">
-          <Plus size={24} /> New Request
-        </button>
-      )}
+      <button onClick={() => setIsModalOpen(true)} className="fixed bottom-8 right-8 bg-blue-600 text-white px-8 py-4 rounded-2xl font-bold flex items-center gap-3 shadow-xl hover:bg-blue-700">
+        <Plus size={24} /> New Request
+      </button>
 
-      <Request isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSuccess={fetchRequests} />
+      <Request isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+    </div>
+  );
+};
+
+// NavItem Component
+const NavItem = ({ icon, label, active = false }) => (
+  <div className={`flex items-center gap-3 px-5 py-3.5 rounded-2xl font-bold cursor-pointer transition 
+    ${active ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-50'}`}>
+    {icon} <span className="text-sm">{label}</span>
+  </div>
+);
+
+// StatCard Component
+const StatCard = ({ title, count, color, icon, status }) => {
+  const colors = {
+    blue: "bg-blue-50 text-blue-600",
+    emerald: "bg-emerald-50 text-emerald-600",
+    slate: "bg-slate-50 text-slate-600"
+  };
+
+  return (
+    <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
+      <div className="flex justify-between items-start">
+        <div>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{title}</p>
+          <h3 className="text-6xl font-black text-slate-900 mt-2">{count}</h3>
+        </div>
+        <div className={`p-4 rounded-2xl ${colors[color]}`}>{icon}</div>
+      </div>
+      <p className="text-xs font-bold text-slate-400 mt-6">{status}</p>
+    </div>
+  );
+};
+
+// RequestItem Component
+const RequestItem = ({ name, description, date, status }) => {
+  const styles = {
+    "Approved": "bg-emerald-50 text-emerald-600 border-emerald-100",
+    "Under Review": "bg-amber-50 text-amber-600 border-amber-100",
+    "Ready": "bg-blue-50 text-blue-600 border-blue-100",
+    "Rejected": "bg-red-50 text-red-600 border-red-100"
+  };
+
+  return (
+    <div className="flex items-center justify-between p-6 rounded-2xl border border-slate-100 hover:bg-slate-50/50 transition-colors">
+      <div className="flex items-center gap-5">
+        <div className="w-14 h-14 bg-white border border-slate-100 rounded-2xl flex items-center justify-center text-slate-400">
+          <FileText size={24} />
+        </div>
+        <div className="text-left">
+          <p className="font-bold text-slate-900">{name}</p>
+          <p className="text-slate-400 text-xs font-medium">Submitted on {date}</p>
+          {description && (
+            <p className="text-slate-500 text-xs mt-2 italic bg-slate-50 px-3 py-1 rounded-lg inline-block">
+              “{description}”
+            </p>
+          )}
+        </div>
+      </div>
+
+      <div className="flex items-center gap-4">
+        <span className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border ${styles[status] || 'bg-slate-50'}`}>
+          {status}
+        </span>
+      </div>
     </div>
   );
 };
