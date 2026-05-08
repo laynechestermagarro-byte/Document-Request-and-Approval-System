@@ -5,6 +5,7 @@ const Stats = () => {
     { label: "Total Completed", count: "1,284", status: "SUCCESS", color: "text-slate-600", bg: "bg-slate-50" }
   ];
 
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
       {statData.map((stat, i) => (
@@ -19,5 +20,6 @@ const Stats = () => {
     </div>
   );
 };
+
 
 export default Stats;

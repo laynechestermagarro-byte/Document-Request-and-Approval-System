@@ -1,97 +1,90 @@
 const router = require('express').Router();
-const Request = require('../models/Request');
-const multer = require('multer');
-const path = require('path');
+const User = require('../models/User');
+const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
 
-// Multer Setup
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, 'uploads/'),
-  filename: (req, file, cb) => cb(null, Date.now() + '-' + file.originalname)
-});
 
-const upload = multer({ storage });
-
-// ====================== CREATE REQUEST ======================
-router.post('/create', upload.single('file'), async (req, res) => {
+/**
+ * @swagger
+ * /api/auth/register:
+ * post:
+ * summary: Register a new user
+ * tags: [Authentication]
+ */
+router.post('/register', async (req, res) => {
   try {
-    const { requester, requesterName, documentType, description } = req.body;
-
-    if (!requester || !documentType) {
-      return res.status(400).json({ message: "Requester and Document Type are required" });
+    const { name, email, password, role } = req.body;
+   
+    if (!name || !email || !password) {
+      return res.status(400).json({ error: "Name, email and password are required" });
     }
 
-    const newRequest = new Request({
-      requester,
-      requesterName: requesterName || "Unknown User",
-      documentType,
-      description: description || "",
-      status: 'Pending',
-      fileName: req.file ? req.file.filename : null,
-      filePath: req.file ? req.file.path : null,
+
+    const normalizedEmail = email.toLowerCase().trim();
+    let existingUser = await User.findOne({ email: normalizedEmail });
+
+
+    if (existingUser) {
+      return res.status(400).json({ error: "Email already exists" });
+    }
+
+
+    // ✅ FIXED: We no longer hash here.
+    // Just pass the raw password; the User model's .pre('save') hook handles the hashing.
+    const user = new User({
+      name,
+      email: normalizedEmail,
+      password,
+      role: role || 'Requester'
     });
 
-    const savedRequest = await newRequest.save();
-    res.status(201).json(savedRequest);
+
+    await user.save();
+    res.status(201).json({ message: "User registered successfully!" });
   } catch (err) {
-    console.error("Create Request Error:", err);
-    res.status(500).json({ message: "Error creating request", error: err.message });
+    console.error("Registration Error:", err);
+    res.status(400).json({ error: "Registration failed", message: err.message });
   }
 });
 
-// ====================== GET ALL REQUESTS ======================
-router.get('/all', async (req, res) => {
+
+/**
+ * @swagger
+ * /api/auth/login:
+ * post:
+ * summary: Log in to get an authentication token
+ * tags: [Authentication]
+ */
+router.post('/login', async (req, res) => {
   try {
-    const { role, userId } = req.query;
+    const { email, password } = req.body;
+    const normalizedEmail = email.toLowerCase().trim();
+   
+    const user = await User.findOne({ email: normalizedEmail });
 
-    let query = {};
 
-    if (role === 'Requester' && userId) {
-      query = { requester: userId };
+    if (user && await bcrypt.compare(password, user.password)) {
+      const token = jwt.sign(
+        { id: user._id, role: user.role },
+        process.env.JWT_SECRET || 'fallback_secret',
+        { expiresIn: '1h' }
+      );
+
+
+      res.json({
+        token,
+        role: user.role,
+        name: user.name,
+        userId: user._id.toString()
+      });
+    } else {
+      res.status(401).json({ message: "Invalid email or password" });
     }
-    // Admin can see all
-
-    const requests = await Request.find(query)
-      .populate('requester', 'name email')
-      .sort({ createdAt: -1 });
-
-    res.json(requests);
   } catch (err) {
-    console.error("Fetch Requests Error:", err);
-    res.status(500).json({ message: "Failed to fetch requests", error: err.message });
+    console.error("Login Error:", err);
+    res.status(500).json({ error: "Login failed", message: err.message });
   }
 });
 
-// ====================== UPDATE REQUEST STATUS ======================
-router.patch('/status/:id', async (req, res) => {
-  try {
-    const { status, remarks } = req.body;
-
-    const allowedStatuses = ['Pending', 'Under Review', 'Approved', 'Ready', 'Rejected'];
-
-    if (!allowedStatuses.includes(status)) {
-      return res.status(400).json({ message: "Invalid status" });
-    }
-
-    const updatedRequest = await Request.findByIdAndUpdate(
-      req.params.id,
-      { 
-        status,
-        remarks: remarks || "",
-        reviewedBy: req.body.reviewedBy || null,   // You can pass admin userId
-        reviewedAt: new Date()
-      },
-      { new: true }
-    ).populate('requester', 'name email');
-
-    if (!updatedRequest) {
-      return res.status(404).json({ message: "Request not found" });
-    }
-
-    res.json(updatedRequest);
-  } catch (err) {
-    console.error("Status Update Error:", err);
-    res.status(500).json({ message: "Failed to update status", error: err.message });
-  }
-});
 
 module.exports = router;
